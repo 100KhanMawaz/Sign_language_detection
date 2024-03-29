@@ -1,4 +1,5 @@
 import os
+import pickle
 from cvzone.HandTrackingModule import HandDetector
 import mediapipe as mp
 import cv2
@@ -6,18 +7,30 @@ import numpy as np
 import time
 
 capture = cv2.VideoCapture(0)
+mp_hands = mp.solutions.hands
+mp_drawing = mp.solutions.drawing_utils
+mp_drawing_styles = mp.solutions.drawing_styles
+
+mp_hands = mp_hands.Hands(static_image_mode=True, min_detection_confidence=0.3)
+
 detectHand = HandDetector(maxHands=1)
 
 offset = 20
 imgSize = 300
 
-folder = "Data/B"
+importing_model=pickle.load(open('model.pickle','rb'))
+model=importing_model['model']
+
 cnt = 0
 
+
 while True:
+    hath_hai=False
+    data_aux = []
     success, img = capture.read() #reading through camera
     hands, img =detectHand.findHands(img) #here the hands variable is array of total number of hands within which each hand is a dictionary data structure which stores various information about each hand
     if hands:
+        hath_hai=True
         hand=hands[0]#as there can be multiple hands in the hand array so we are taking only 1 hand i.e hands[0]
         x,y,w,h=hand['bbox']#as we know hand is dictonary which contains the description of hand so within that there's a tuple having 4 elements length,breadth,height,width which are fixed that's why tuple is used rather list and the name of the tuple is bbox
         imgCrop=img[y-offset:y+h+offset, x-offset:x+w+offset] #creating a new image which is rectangle is liye to sirf 2 parameters jaa raha hai and we know that rectangle mein 2 hi elements rehta hai ek length and breadth
@@ -40,13 +53,23 @@ while True:
         #0:height_of_cropped_img,0:width_of_cropped_img by wrting this we are specifying from where to where our image should spread so it is from 0th(0th row) position i.e top position in a matrix to the height of the image and from 0th column i.e from leftmost position of a matrix to the width of the image
 
         #Centering the imgWhite
+        img_rgb = cv2.cvtColor(imgWhite, cv2.COLOR_BGR2RGB)
+        # print(img_rgb)
+        # print(type(img_rgb))
+        results = mp_hands.process(img_rgb)
+        if results.multi_hand_landmarks:
+            for hand_landmarks in results.multi_hand_landmarks:
+                for i in range(len(hand_landmarks.landmark)):
+                    x = hand_landmarks.landmark[i].x
+                    y = hand_landmarks.landmark[i].y
+                    data_aux.append(x)
+                    data_aux.append(y)
 
-        cv2.imshow('Created_Image', imgWhite)
+            predicted = model.predict([np.asarray(data_aux)])
+            print(predicted[0])
+            #cv2.imshow('Created_Image', imgWhite)
     cv2.imshow("Sign Language Prediction of Kids Using  Machine Learning ",img) #showing whatever our camera read
-    key = cv2.waitKey(1)
-    if key == ord("s"):
-        cnt += 1
-        cv2.imwrite(f'{folder}/Image_{cnt}.jpg',imgWhite) #here we wrote folder in which image will be saved after \ we wrote name of image with current time as it will be unique for every image
-        print(cnt)
-
-
+    cv2.waitKey(1)
+    # if hath_hai:
+    #     predicted = model.predict([np.asarray(data_aux)])
+    #     print(predicted)
